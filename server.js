@@ -1,12 +1,13 @@
 const express = require('express');
-const multer = require('multer');
 const cors = require('cors');
 const fs = require('fs-extra');
 const path = require('path');
-const app = express();
-const PORT = 3000;
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -42,8 +43,6 @@ const storage = multer.diskStorage({
         cb(null, uniqueSuffix + path.extname(file.originalname));
     }
 });
-
-const upload = multer({ storage: storage });
 
 // --- API Endpoints ---
 
