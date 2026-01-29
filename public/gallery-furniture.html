@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Executed Spaces | Narendra Interio</title>
+    <title>Made-to-Measure Furniture | Narendra Interio</title>
     <link rel="stylesheet" href="styles.css">
 
     <!-- Fonts -->
@@ -34,19 +34,25 @@
 
     <!-- Hero Section -->
     <header class="hero gallery-hero">
-        <img src="assets/brands/showroom_interior_1769035486367.png" alt="Showroom Interiors" class="hero-bg">
+        <img src="/assets/brands/from-scratch.jpeg" alt="Furniture Collection" class="hero-bg">
         <div class="hero-overlay"></div>
         <div class="hero-content">
-            <h1 class="hero-title">Executed Spaces</h1>
-            <p class="hero-subtitle">Real homes, real stories. See how we bring visions to life.</p>
+            <h1 class="hero-title">Made-to-Measure Furniture</h1>
+            <p class="hero-subtitle">Custom craftsmanship designed for your unique space and style.</p>
         </div>
     </header>
 
     <!-- Gallery Grid -->
     <section class="section">
         <div class="container">
+            <!-- Category Filters for Furniture -->
+            <div class="category-tabs" style="justify-content:center; margin-bottom:2rem; display:flex; gap:1rem;">
+                <button class="btn btn-outline active-filter" onclick="filterGallery('all', this)">All</button>
+                <button class="btn btn-outline" onclick="filterGallery('Sofa', this)">Sofa</button>
+                <button class="btn btn-outline" onclick="filterGallery('Bed', this)">Bed</button>
+            </div>
+
             <div class="gallery-grid" id="gallery-grid">
-                <!-- Images will be loaded dynamically -->
                 <div class="gallery-placeholder" style="grid-column: 1/-1;">Loading Collection...</div>
             </div>
         </div>
@@ -54,8 +60,9 @@
 
     <!-- Dynamic Gallery Script -->
     <script>
-        const SECTION = 'Showroom';
+        const SECTION = 'Furniture';
         const grid = document.getElementById('gallery-grid');
+        let allImages = [];
 
         document.addEventListener('DOMContentLoaded', fetchImages);
 
@@ -63,9 +70,9 @@
             try {
                 // Fetch all images for this Section
                 const res = await fetch(`/api/images/${encodeURIComponent(SECTION)}`);
-                const images = await res.json();
+                allImages = await res.json();
 
-                renderImages(images);
+                renderImages(allImages);
             } catch (err) {
                 console.error(err);
                 grid.innerHTML = '<p style="text-align:center;">Failed to load images.</p>';
@@ -85,6 +92,25 @@
                 });
             } else {
                 grid.innerHTML = '<p style="text-align:center; grid-column:1/-1;">No images in this section yet.</p>';
+            }
+        }
+
+        function filterGallery(category, btn) {
+            // Update active button state
+            document.querySelectorAll('.active-filter').forEach(b => {
+                b.style.backgroundColor = 'transparent';
+                b.style.color = 'var(--text-primary)';
+                b.classList.remove('active-filter');
+            });
+            btn.classList.add('active-filter');
+            btn.style.backgroundColor = 'var(--text-primary)';
+            btn.style.color = 'white';
+
+            if (category === 'all') {
+                renderImages(allImages);
+            } else {
+                const filtered = allImages.filter(img => img.category === category);
+                renderImages(filtered);
             }
         }
     </script>

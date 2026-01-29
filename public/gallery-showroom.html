@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Soft Furnishings | Narendra Interio</title>
+    <title>Executed Spaces | Narendra Interio</title>
     <link rel="stylesheet" href="styles.css">
 
     <!-- Fonts -->
@@ -34,25 +34,19 @@
 
     <!-- Hero Section -->
     <header class="hero gallery-hero">
-        <img src="assets/brands/collage-3.png" alt="Living Room Collection" class="hero-bg">
+        <img src="/assets/brands/showroom_interior_1769035486367.png" alt="Showroom Interiors" class="hero-bg">
         <div class="hero-overlay"></div>
         <div class="hero-content">
-            <h1 class="hero-title">Soft Furnishings</h1>
-            <p class="hero-subtitle">Designed for comfort. Made to last.</p>
+            <h1 class="hero-title">Executed Spaces</h1>
+            <p class="hero-subtitle">Real homes, real stories. See how we bring visions to life.</p>
         </div>
     </header>
 
     <!-- Gallery Grid -->
     <section class="section">
         <div class="container">
-            <!-- Category Filters for Showroom / Soft Furnishings -->
-            <div class="category-tabs" style="justify-content:center; margin-bottom:2rem; display:flex; gap:1rem;">
-                <button class="btn btn-outline active-filter" onclick="filterGallery('all', this)">All</button>
-                <button class="btn btn-outline" onclick="filterGallery('Curtains', this)">Curtains</button>
-                <button class="btn btn-outline" onclick="filterGallery('Bedsheets', this)">Bedsheets</button>
-            </div>
-
             <div class="gallery-grid" id="gallery-grid">
+                <!-- Images will be loaded dynamically -->
                 <div class="gallery-placeholder" style="grid-column: 1/-1;">Loading Collection...</div>
             </div>
         </div>
@@ -60,9 +54,8 @@
 
     <!-- Dynamic Gallery Script -->
     <script>
-        const SECTION = 'Interior';
+        const SECTION = 'Showroom';
         const grid = document.getElementById('gallery-grid');
-        let allImages = [];
 
         document.addEventListener('DOMContentLoaded', fetchImages);
 
@@ -70,12 +63,12 @@
             try {
                 // Fetch all images for this Section
                 const res = await fetch(`/api/images/${encodeURIComponent(SECTION)}`);
-                allImages = await res.json();
+                const images = await res.json();
 
-                renderImages(allImages);
+                renderImages(images);
             } catch (err) {
                 console.error(err);
-                grid.innerHTML = '<p style="text-align:center;">Failed to load images. Backend may not be running.</p>';
+                grid.innerHTML = '<p style="text-align:center;">Failed to load images.</p>';
             }
         }
 
@@ -91,32 +84,7 @@
                     grid.appendChild(item);
                 });
             } else {
-                grid.innerHTML = `
-                    <div class="gallery-item" style="grid-column: 1/-1;">
-                        <div class="gallery-placeholder">
-                            No images in this section yet. <br>
-                            <a href="admin.html">Go to Admin</a>
-                        </div>
-                    </div>`;
-            }
-        }
-
-        function filterGallery(category, btn) {
-            // Update active state
-            document.querySelectorAll('.active-filter').forEach(b => {
-                b.style.backgroundColor = 'transparent';
-                b.style.color = 'var(--text-primary)';
-                b.classList.remove('active-filter');
-            });
-            btn.classList.add('active-filter');
-            btn.style.backgroundColor = 'var(--text-primary)';
-            btn.style.color = 'white';
-
-            if (category === 'all') {
-                renderImages(allImages);
-            } else {
-                const filtered = allImages.filter(img => img.category === category);
-                renderImages(filtered);
+                grid.innerHTML = '<p style="text-align:center; grid-column:1/-1;">No images in this section yet.</p>';
             }
         }
     </script>
