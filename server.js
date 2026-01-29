@@ -5,12 +5,23 @@ const fs = require('fs-extra');
 const path = require('path');
 const app = express();
 const PORT = 3000;
+const cloudinary = require('cloudinary').v2;
+const multer = require('multer');
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(__dirname)); // Serve current directory files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Explicitly serve uploads
+
+// Serve frontend files only (NOT whole project)
+app.use(express.static(path.join(__dirname, 'public')));
 
 // DB Path
 const DB_PATH = path.join(__dirname, 'data', 'db.json');
@@ -65,7 +76,7 @@ app.get('/api/images/:section', async (req, res) => {
     }
 });
 
-// Upload Image Endpoint
+// Upload Image Endpoint (Cloudinary)
 app.post('/api/upload', upload.single('image'), async (req, res) => {
     try {
         if (!req.file) {
@@ -78,24 +89,37 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
             return res.status(400).json({ error: 'Section is required' });
         }
 
-        const newImage = {
-            id: Date.now().toString(),
-            section: section,
-            category: category || '', // Category might be empty for Showroom
-            filename: req.file.filename,
-            path: 'uploads/' + req.file.filename,
+        // Upload to Cloudinary
+        const result = await cloudinary.uploader.upload(
+            `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`,
+            {
+                folder: `interio/${section}`,
+            }
+        );
+
+        // Save only URL + metadata
+        const imageData = {
+            url: result.secure_url,
+            section,
+            category: category || 'all',
             caption: caption || '',
-            uploadDate: new Date().toISOString()
+            createdAt: Date.now()
         };
 
-        const db = await fs.readJson(DB_PATH);
-        db.images.push(newImage);
-        await fs.writeJson(DB_PATH, db, { spaces: 2 });
+        const dbPath = path.join(__dirname, 'data', 'db.json');
+        const db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
 
-        res.json({ success: true, image: newImage });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Upload Failed' });
+        db.images.push(imageData);
+        fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
+
+        res.json({
+            success: true,
+            image: imageData
+        });
+
+    } catch (err) {
+        console.error('Upload error:', err);
+        res.status(500).json({ error: 'Upload failed' });
     }
 });
 
