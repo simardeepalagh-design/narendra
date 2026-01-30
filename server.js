@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs-extra');
@@ -5,155 +6,140 @@ const path = require('path');
 const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
 
+/* ------------------ ENV VALIDATION ------------------ */
+const REQUIRED_ENV = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'];
+const missingEnv = REQUIRED_ENV.filter(key => !process.env[key]);
+
+if (missingEnv.length > 0) {
+    console.error('❌ Missing required environment variables:', missingEnv.join(', '));
+    process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-
-const upload = multer({ storage: multer.memoryStorage() });
-
+/* ------------------ CLOUDINARY ------------------ */
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
 });
+console.log('✅ Cloudinary Configured Successfully');
 
-// Middleware
+/* ------------------ MIDDLEWARE ------------------ */
 app.use(cors());
 app.use(express.json());
-
-// Serve frontend files only (NOT whole project)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// DB Path
+/* ------------------ MULTER (MEMORY) ------------------ */
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 } // Limit to 5MB
+});
+
+/* ------------------ DB ------------------ */
 const DB_PATH = path.join(__dirname, 'data', 'db.json');
 
-// Ensure DB exists
 if (!fs.existsSync(DB_PATH)) {
     fs.outputJsonSync(DB_PATH, { images: [] });
 }
 
-// Multer Storage Configuration
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'uploads/');
-    },
-    filename: function (req, file, cb) {
-        // Create unique filename: timestamp-originalName
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + path.extname(file.originalname));
-    }
-});
-
-// --- API Endpoints ---
-
-// Login Endpoint (Simple Hardcoded)
+/* ------------------ AUTH ------------------ */
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
+    // TODO: Move credentials to .env for production
     if (username === 'admin' && password === 'admin123') {
-        res.json({ success: true, message: 'Login valid' });
+        res.json({ success: true });
     } else {
-        res.status(401).json({ success: false, message: 'Invalid credentials' });
+        res.status(401).json({ success: false });
     }
 });
 
-// Get Images by Section
+/* ------------------ GET IMAGES ------------------ */
 app.get('/api/images/:section', async (req, res) => {
     try {
-        const sectionParam = req.params.section; // Expected: Interior, Furniture, Showroom, or 'all'
         const db = await fs.readJson(DB_PATH);
         let images = db.images;
 
-        if (sectionParam !== 'all') {
-            images = images.filter(img => img.section === sectionParam);
+        if (req.params.section !== 'all') {
+            images = images.filter(i => i.section === req.params.section);
         }
 
-        // Return most recent first
         res.json(images.reverse());
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Failed to Fetch Images' });
+        console.error('Error fetching images:', error);
+        res.status(500).json({ error: 'Failed to fetch images' });
     }
 });
 
-// Upload Image Endpoint (Cloudinary)
+/* ------------------ UPLOAD IMAGE ------------------ */
 app.post('/api/upload', upload.single('image'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
-        const { section, category, caption } = req.body;
-
-        if (!section) {
-            return res.status(400).json({ error: 'Section is required' });
+        const { section, category } = req.body;
+        if (!section || !category) {
+            return res.status(400).json({ error: 'Section and Category are required' });
         }
 
-        // Upload to Cloudinary
         const result = await cloudinary.uploader.upload(
             `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`,
-            {
-                folder: `interio/${section}`,
-            }
+            { folder: `interio/${section}` }
         );
 
-        // Save only URL + metadata
+        const db = await fs.readJson(DB_PATH);
+
         const imageData = {
-            url: result.secure_url,
+            id: Date.now().toString(),
             section,
-            category: category || 'all',
-            caption: caption || '',
+            category,
+            url: result.secure_url,
+            public_id: result.public_id,
             createdAt: Date.now()
         };
 
-        const dbPath = path.join(__dirname, 'data', 'db.json');
-        const db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
-
         db.images.push(imageData);
-        fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
+        await fs.writeJson(DB_PATH, db, { spaces: 2 });
 
-        res.json({
-            success: true,
-            image: imageData
-        });
+        res.json({ success: true, image: imageData });
 
     } catch (err) {
         console.error('Upload error:', err);
-        res.status(500).json({ error: 'Upload failed' });
+        res.status(500).json({ error: 'Upload failed', details: err.message });
     }
 });
 
-// Delete Image Endpoint
+/* ------------------ DELETE IMAGE ------------------ */
 app.delete('/api/images/:id', async (req, res) => {
     try {
-        const id = req.params.id;
         const db = await fs.readJson(DB_PATH);
+        const index = db.images.findIndex(i => i.id === req.params.id);
 
-        const imageIndex = db.images.findIndex(img => img.id === id);
-        if (imageIndex === -1) {
+        if (index === -1) {
             return res.status(404).json({ error: 'Image not found' });
         }
 
-        const image = db.images[imageIndex];
+        const image = db.images[index];
 
-        // Delete file from filesystem
-        const filePath = path.join(__dirname, image.path);
-        if (await fs.pathExists(filePath)) {
-            await fs.remove(filePath);
+        // Delete from Cloudinary
+        if (image.public_id) {
+            await cloudinary.uploader.destroy(image.public_id);
         }
 
-        // Remove from DB
-        db.images.splice(imageIndex, 1);
+        db.images.splice(index, 1);
         await fs.writeJson(DB_PATH, db, { spaces: 2 });
 
-        res.json({ success: true, message: 'Image deleted' });
+        res.json({ success: true });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Delete Failed' });
+        console.error('Delete error:', error);
+        res.status(500).json({ error: 'Delete failed' });
     }
 });
 
-// Start Server
+/* ------------------ START ------------------ */
 app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
-    console.log(`Admin Dashboard: http://localhost:${PORT}/admin.html`);
+    console.log(`✅ Server running at http://localhost:${PORT}`);
+    console.log(`   Admin Dashboard: http://localhost:${PORT}/admin.html`);
 });

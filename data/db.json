@@ -1,22 +1,12 @@
 {
   "images": [
     {
-      "id": "1769488883758",
-      "section": "Interior",
-      "category": "Curtains",
-      "filename": "1769488883758-221082379.jpg",
-      "path": "uploads/1769488883758-221082379.jpg",
-      "caption": "",
-      "uploadDate": "2026-01-27T04:41:23.758Z"
-    },
-    {
-      "id": "1769488892359",
+      "id": "1769807804337",
       "section": "Interior",
       "category": "Bedsheets",
-      "filename": "1769488892357-834648062.jpg",
-      "path": "uploads/1769488892357-834648062.jpg",
-      "caption": "",
-      "uploadDate": "2026-01-27T04:41:32.359Z"
+      "url": "https://res.cloudinary.com/dlp8mryv8/image/upload/v1769807803/interio/Interior/bobhni01ai1m3smyicbu.jpg",
+      "public_id": "interio/Interior/bobhni01ai1m3smyicbu",
+      "createdAt": 1769807804337
     }
   ]
 }
