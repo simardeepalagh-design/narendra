@@ -64,15 +64,25 @@ app.get('/api/images/:section', async (req, res) => {
             .with_field('context') // Fetches custom metadata (category)
             .execute();
 
+        // DEBUG: Log the first result to see structure
+        if (result.resources.length > 0) {
+            console.log('[DEBUG] First Image Raw Context:', JSON.stringify(result.resources[0].context));
+        }
+
         // Map Cloudinary result to our frontend format
-        const images = result.resources.map(res => ({
-            id: res.public_id, // Use public_id as the ID for deletion
-            url: res.secure_url,
-            // Safely handle missing folder or context
-            section: (res.folder || '').split('/')[1] || 'Uncategorized',
-            category: res.context?.custom?.category || '',
-            createdAt: res.created_at
-        }));
+        const images = result.resources.map(res => {
+            // Context can be directly in .context or .context.custom depending on config
+            const category = res.context?.category || res.context?.custom?.category || '';
+
+            return {
+                id: res.public_id,
+                url: res.secure_url,
+                // Safely handle missing folder or context
+                section: (res.folder || '').split('/')[1] || 'Uncategorized',
+                category: category,
+                createdAt: res.created_at
+            };
+        });
 
         res.json(images);
     } catch (error) {
@@ -118,17 +128,24 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
 });
 
 /* ------------------ DELETE IMAGE (FROM CLOUDINARY) ------------------ */
-app.delete('/api/images/:id', async (req, res) => {
+app.delete('/api/images', async (req, res) => {
     try {
-        const publicId = req.params.id; // Using public_id directly as the ID
+        const publicId = req.query.id; // Get ID from Query Param
+        console.log(`[DELETE] Request for ID: ${publicId}`);
+
+        if (!publicId) {
+            return res.status(400).json({ error: 'Missing image ID' });
+        }
 
         // Delete from Cloudinary
         const result = await cloudinary.uploader.destroy(publicId);
 
         if (result.result !== 'ok') {
+            console.error(`[DELETE] Cloudinary Error: ${JSON.stringify(result)}`);
             throw new Error('Cloudinary delete failed');
         }
 
+        console.log(`[DELETE] Success for ID: ${publicId}`);
         res.json({ success: true });
     } catch (error) {
         console.error('Delete error:', error);

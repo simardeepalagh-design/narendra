@@ -354,9 +354,14 @@
             if (!confirm('Are you sure you want to delete this image?')) return;
 
             try {
-                const res = await fetch(`${API_URL}/images/${id}`, { method: 'DELETE' });
+                // Use Query Param to handle slashes in ID
+                const res = await fetch(`${API_URL}/images?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
                 const data = await res.json();
-                if (data.success) loadImages();
+                if (data.success) {
+                    loadImages();
+                } else {
+                    alert('Failed to delete: ' + (data.error || 'Unknown error'));
+                }
             } catch (err) {
                 console.error(err);
                 alert('Failed to delete');
